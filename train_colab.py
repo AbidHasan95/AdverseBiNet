@@ -34,6 +34,7 @@ params = {'path' : path,
           'gf_dim': 32,
           'df_dim': 32,
           'model_path' : 'gdrive/My Drive/binary_imgs/model',
+          'logdir' : 'gdrive/My Drive/binary_imgs/logs',
           'L1_lambda': 100,
           'lr': 0.0001,
           'beta_1': 0.5,
@@ -127,6 +128,18 @@ g_bn_d5_ = batch_norm(name='g_bn_d5_')
 g_bn_d6_ = batch_norm(name='g_bn_d6_')
 g_bn_d7_ = batch_norm(name='g_bn_d7_')
 
+def variable_summaries(identifier,var):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+    with tf.name_scope('summaries'):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        with tf.name_scope('stddev'):
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+        tf.summary.scalar('stddev', stddev)
+        tf.summary.scalar('max', tf.reduce_max(var))
+        tf.summary.scalar('min', tf.reduce_min(var))
+        tf.summary.histogram('histogram', var)
+        tf.summary.scalar(identifier,var)
 
 def Noise_transfer_network(content, style, y=None):
     s = params['output_size']
@@ -440,11 +453,14 @@ d1_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D1_
 d1_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D1_fake_logits, labels=tf.zeros_like(D1_fake)))
 d1_loss = d1_loss_real + d1_loss_fake
 g1_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D1_fake_logits, labels=tf.ones_like(D1_fake)))
-
 content_loss = get_content_loss(output, content)
 style_loss = get_style_loss(output, style)
 
 g1_loss = g1_loss + 10*content_loss + 0.5*style_loss
+#tf.summary.scalar('Stage1 D1 loss',d1_loss)
+#tf.summary.scalar('Stage1 G1 loss',g1_loss)
+variable_summaries('Stage1 D1 loss',d1_loss)
+variable_summaries('Stage1 G1 loss',g1_loss)
 
 ## stage2 losses
 
@@ -457,6 +473,11 @@ d2_loss = d2_loss_real + d2_loss_fake
 g2_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D2_fake_logits, labels=tf.ones_like(D2_fake)))
 
 g2_loss = g2_loss + 100 * tf.reduce_mean(tf.abs(content - Cleaned))
+#d2_loss_summary = tf.summary.scalar('Stage1 D1 loss',d2_loss)
+#g2_loss_summary = tf.summary.scalar('Stage2 G2 loss',g2_loss)
+
+variable_summaries('Stage2 D2 loss',d2_loss)
+variable_summaries('Stage2 G2 loss',g2_loss)
 
 ## Combined stage1 & stage2 loss
 
@@ -480,6 +501,13 @@ g1_optim = tf.train.AdamOptimizer(params['lr'], beta1=params['beta_1'])
 d2_optim = tf.train.AdamOptimizer(params['lr'], beta1=params['beta_1'])
 g2_optim = tf.train.AdamOptimizer(params['lr'], beta1=params['beta_1'])
 
+#d2_loss_summary = tf.summary.scalar('Stage1 D1 loss',d2_loss)
+#g2_loss_summary = tf.summary.scalar('Stage2 G2 loss',g2_loss)
+
+variable_summaries('Stage3 D1 loss',d1_loss_e2e)
+variable_summaries('Stage3 G1 loss',g1_loss_e2e)
+variable_summaries('Stage3 D2 loss',d2_loss_e2e)
+variable_summaries('Stage3 G2 loss',g2_loss_e2e)
 
 # stage1 training
 
@@ -520,7 +548,8 @@ saver = tf.train.Saver()
 load_weights(saver, params['model_path'])
 
 summary = tf.summary.merge_all()
-trainwriter = tf.summary.FileWriter("logs", sess.graph)
+
+trainwriter = tf.summary.FileWriter(params['logdir'], sess.graph)
 
 counter = 1
 start_time = time.time()
@@ -546,7 +575,7 @@ for epoch in range(params['epochs']):
     print("Epoch: {} ; Counter: {}".format(epoch, counter))
 
     for idx in range(data_set_size//params['batch_size']):
-
+        step = epoch * (data_set_size//params['batch_size']) + idx
         batch_STYLEpath = train_STYLEpath[idx * params['batch_size'] : (idx + 1) * params['batch_size']]
         batch_STYLEdata = np.array([load_data(path) for path in batch_STYLEpath])
         batch_CONTENTpath = train_CONTENTpath[idx * params['batch_size']: (idx + 1) * params['batch_size']]
@@ -592,8 +621,8 @@ for epoch in range(params['epochs']):
             if counter%10 == 0:
 
                 print ('## Combined training ## : idx : ' +str(counter) + ' Dis1 loss : '+str(d1_loss_e2e_) + ' Gen1 loss : '+str(g1_loss_e2e_)+ ' Dis2 loss : '+str(d2_loss_e2e_) + ' Gen2 loss : '+str(g2_loss_e2e_))
-
-        trainwriter.add_summary(summary_, counter)
+        if counter%10:
+            trainwriter.add_summary(summary_, counter)
 
 
 

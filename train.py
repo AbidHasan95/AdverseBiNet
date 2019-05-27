@@ -29,7 +29,7 @@ np.random.seed(0)
 
 global params
 params = {'path' : path,
-          'batch_size' : 1,
+          'batch_size' : 4,
           'output_size': 256,
           'gf_dim': 32,
           'df_dim': 32,
@@ -49,8 +49,9 @@ if not os.path.isdir(params['Img_saved_path_for_real_data']):
     os.mkdir(params['Img_saved_path_for_real_data'])
 
 def get_file_paths(path):
-    img_paths = [os.path.join(root, file)  for root, dirs, files in os.walk(path) for file in files if '_gt' not in file]
-    gt_path = [os.path.join(os.path.dirname(file), os.path.basename(file).split('.')[0] + '_est_gt.tiff') for file in img_paths]
+    imgs = sorted([os.path.join(root, file)  for root, dirs, files in os.walk(path) for file in files])
+    img_paths = [file for file in imgs if '_gt' not in file]
+    gt_path = [file for file in imgs if '_gt' in file]
     return np.array(img_paths[:int(len(img_paths)*.9)]), np.array(gt_path[:int(len(gt_path)*.9)]), np.array(img_paths[int(len(img_paths)*.9):]) , np.array(gt_path[int(len(gt_path)*.9):])
 
 
@@ -531,11 +532,11 @@ data_set_size = len(train_STYLEpath)
 print (data_set_size//params['batch_size'])
 
 #rndm_test_style = test_STYLEpath[np.random.choice(len(test_STYLEpath),params['batch_size']*10)]
-rndm_test_style = test_STYLEpath[np.random.choice(len(test_STYLEpath),4,replace=False)]
+rndm_test_style = test_STYLEpath[np.random.choice(len(test_STYLEpath),params['batch_size']*3,replace=False)]
 #rndm_test_content = test_CONTENTpath[np.random.choice(len(test_CONTENTpath),params['batch_size']*10)]
-rndm_test_content = test_CONTENTpath[np.random.choice(len(test_CONTENTpath),4,replace = False)]
+rndm_test_content = test_CONTENTpath[np.random.choice(len(test_CONTENTpath),params['batch_size']*3,replace = False)]
 
-Fixd_rndm_indx = np.random.choice(len(test_STYLEpath),4, replace = False)
+Fixd_rndm_indx = np.random.choice(len(test_STYLEpath),params['batch_size']*3, replace = False)
 #Fixd_rndm_indx = np.random.choice(len(test_STYLEpath),params['batch_size']*10)
 
 paired_smaple_input = test_STYLEpath[Fixd_rndm_indx]
